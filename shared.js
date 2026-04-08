@@ -64,8 +64,8 @@ function getSupabase() {
         console.log('Supabase 客戶端已連線');
         return _supabase;
     }
-    return null;
 }
+window.getSupabase = getSupabase;
 
 // --- 3. 共享儲存邏輯 ---
 window.SharedStore = {

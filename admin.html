@@ -99,40 +99,56 @@
 
             document.getElementById('pending-count').innerText = pending.length;
             document.getElementById('revenue-total').innerText = `$${totalRevenue}`;
-            // Re-apply blur state if revenue is hidden
-            if (!revenueVisible) {
-                document.getElementById('revenue-total').style.filter = 'blur(6px)';
-            }
+            try {
+                const store = window.SharedStore;
+                if (!store) return;
+                
+                const orders = await store.getOrders();
+                const listContainer = document.getElementById('orders-list');
+                
+                // 更新統計
+                const pendingCount = orders.filter(o => o.status === 'pending').length;
+                const todayTotal = orders.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.total_price, 0);
+                
+                document.getElementById('pending-count').innerText = pendingCount;
+                document.getElementById('revenue-total').innerText = `$${todayTotal}`;
+                
+                if (!revenueVisible) {
+                    document.getElementById('revenue-total').style.filter = 'blur(6px)';
+                }
 
-            if (orders.length === 0) {
-                listContainer.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:3rem; color:#94a3b8">目前尚無訂單</td></tr>';
-                return;
-            }
+                if (orders.length === 0) {
+                    listContainer.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:3rem; color:#94a3b8">目前尚無訂單</td></tr>';
+                    return;
+                }
 
-            listContainer.innerHTML = orders.map(order => `
-                <tr class="${order.status === 'pending' ? 'row-pending' : ''}">
-                    <td>${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                    <td>#${order.id}</td>
-                    <td>
-                        <b>${order.order_type === 'dine-in' ? '內用' : '外帶'}</b> 
-                        ${order.table_number ? `(${order.table_number})` : ''}
-                    </td>
-                    <td>
-                        <small>${order.items.map(i => `${i.name}x${i.qty}`).join(', ')}</small>
-                    </td>
-                    <td style="font-weight:700">$${order.total_price}</td>
-                    <td>
-                        <span class="status-badge status-${order.status}">
-                            ${order.status === 'pending' ? '處理中' : '已完成'}
-                        </span>
-                    </td>
-                    <td>
-                        ${order.status === 'pending' ? `
-                            <button class="action-btn done-btn" onclick="completeOrder('${order.id}')">完成</button>
-                        ` : '—'}
-                    </td>
-                </tr>
-            `).join('');
+                listContainer.innerHTML = orders.map(order => `
+                    <tr class="${order.status === 'pending' ? 'row-pending' : ''}">
+                        <td>${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                        <td>#${order.id}</td>
+                        <td>
+                            <b>${order.order_type === 'dine-in' ? '內用' : '外帶'}</b> 
+                            ${order.table_number ? `(${order.table_number})` : ''}
+                        </td>
+                        <td>
+                            <small>${order.items.map(i => `${i.name}x${i.qty}`).join(', ')}</small>
+                        </td>
+                        <td style="font-weight:700">$${order.total_price}</td>
+                        <td>
+                            <span class="status-badge status-${order.status}">
+                                ${order.status === 'pending' ? '處理中' : '已完成'}
+                            </span>
+                        </td>
+                        <td>
+                            ${order.status === 'pending' ? `
+                                <button class="action-btn done-btn" onclick="updateStatus('${order.id}', 'completed')">完成</button>
+                            ` : '—'}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('渲染出錯:', err);
+            }
         }
 
         let revenueVisible = false;
@@ -144,10 +160,9 @@
             btn.textContent = revenueVisible ? '🔓' : '🔒';
         }
 
-        async function completeOrder(id) {
+        async function updateStatus(id, status) {
             try {
-                await SharedStore.updateOrderStatus(id, 'completed');
-                showToast('訂單已完成');
+                await window.SharedStore.updateOrderStatus(id, status);
                 render();
             } catch (err) {
                 showToast('更新失敗', 'error');
@@ -166,16 +181,18 @@
             }
         }
 
-        // 實作 Supabase 即時監聽 (Realtime)
+        // 實作 Supabase        // 監控即時更新
         function setupRealtime() {
-            supabase
-                .channel('schema-db-changes')
-                .on('postgres_changes', { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'orders' 
-                }, payload => {
-                    console.log('收到即時更新:', payload);
+            const client = window.getSupabase();
+            if (!client) {
+                // 如果還沒載入，過一秒再試一次
+                setTimeout(setupRealtime, 1000);
+                return;
+            }
+            
+            client.channel('orders')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+                    console.log('偵測到訂單異動，重新渲染...');
                     render();
                 })
                 .subscribe();
