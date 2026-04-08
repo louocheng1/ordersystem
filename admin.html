@@ -215,10 +215,26 @@
                 text-align: left !important;
             }
 
-            /* 手機版細節排序與樣式 */
-            .col-time { font-size: 0.75rem; position: absolute; top: 1rem; right: 1rem; }
-            .col-id { font-size: 1.1rem; color: #64748b; margin-bottom: 0.5rem; }
-            .col-type { display: inline-block; width: auto !important; margin-right: 1rem; }
+            /* 手機版細節排序與樣式 - 徹底修正重疊 */
+            .col-time { 
+                display: block;
+                text-align: right;
+                font-size: 0.75rem;
+                color: #94a3b8;
+                margin-bottom: -1.2rem; /* 讓下一行推上來或是保持間距 */
+            }
+            .col-id { 
+                display: inline-block;
+                font-size: 1.1rem; 
+                color: #1e293b; 
+                font-weight: 800;
+                margin-top: 0.2rem;
+            }
+            .col-type { 
+                display: block; 
+                width: auto !important; 
+                margin-top: 0.5rem; 
+            }
             .col-total { 
                 display: flex; 
                 justify-content: flex-end; 
