@@ -5,13 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>羅家新營豆菜麵 - 管理後台</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- 多重備援 SDK 載入器 -->
     <script>
-        window.addEventListener('load', () => {
-            if (!window.supabase) {
-                alert('核心組件載入失敗 (Supabase SDK)！請檢查網路連線或關閉廣告阻擋程式(AdBlock)。');
+        function loadSupabase(srcs) {
+            if (srcs.length === 0) {
+                alert('核心組件載入失敗！請確認您的網路連線或嘗試關閉廣告阻擋程式(AdBlock)。');
+                return;
             }
-        });
+            const s = document.createElement('script');
+            s.src = srcs[0];
+            s.onload = () => {
+                console.log('SDK 載入成功:', srcs[0]);
+                // 當 SDK 成功載入後才啟動後台監聽與渲染
+                if (typeof setupRealtime === 'function') setupRealtime();
+                if (typeof render === 'function') render();
+            };
+            s.onerror = () => {
+                console.warn('載入失敗，嘗試備用來源:', srcs[0]);
+                loadSupabase(srcs.slice(1));
+            };
+            document.head.appendChild(s);
+        }
+        loadSupabase([
+            'https://unpkg.com/@supabase/supabase-js@2',
+            'https://cdnjs.cloudflare.com/ajax/libs/supabase/2.39.8/supabase.js',
+            'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+        ]);
     </script>
 </head>
 <body style="background: #f8fafc">
@@ -162,9 +181,7 @@
                 .subscribe();
         }
 
-        // 初始化
-        setupRealtime();
-        render();
+        // 初始化已移至 SDK onload 執行
     </script>
 </body>
 </html>
