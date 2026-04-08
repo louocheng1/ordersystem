@@ -126,16 +126,26 @@
 
         function renderMenu() {
             const container = document.getElementById('menu-container');
-            const categories = [...new Set(MENU_ITEMS.map(item => item.category))];
+            const menu = window.MENU_ITEMS || [];
+            
+            // 定義想要的類別順序
+            const order = ['主食類', '湯類', '小菜類'];
+            
+            // 獲取所有類別並依照上述順序排序
+            const categories = [...new Set(menu.map(item => item.category))].sort((a, b) => {
+                const indexA = order.indexOf(a);
+                const indexB = order.indexOf(b);
+                return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+            });
 
             container.innerHTML = categories.map(cat => `
                 <div class="menu-category-header">${cat}</div>
-                ${MENU_ITEMS.filter(item => item.category === cat).map(item => `
+                ${menu.filter(item => item.category === cat).map(item => `
                     <div class="menu-row">
-                        <span class="menu-row-emoji">${item.emoji}</span>
-                        <span class="menu-row-name">${item.name}</span>
-                        <span class="menu-row-price">$${item.price}</span>
-                        <div class="qty-selector" style="margin:0; background:transparent; padding:0; gap:0.75rem">
+                        <div class="menu-row-emoji">${item.emoji}</div>
+                        <div class="menu-row-name">${item.name}</div>
+                        <div class="menu-row-price">$${item.price}</div>
+                        <div class="qty-selector">
                             <button class="qty-btn" onclick="updateQty('${item.id}', -1)">-</button>
                             <span class="qty-val" id="qty-${item.id}">${cart[item.id] || 0}</span>
                             <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
