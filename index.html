@@ -74,6 +74,22 @@
 
     <script src="shared.js"></script>
     <script>
+        // 確保在 shared.js 載入失敗時仍有菜單可用
+        if (!window.MENU_ITEMS) {
+            window.MENU_ITEMS = [
+                { id: 'noodle_lg', name: '新營豆菜麵 (大)', price: 45, category: '主食類', emoji: '🍜' },
+                { id: 'noodle_sm', name: '新營豆菜麵 (小)', price: 35, category: '主食類', emoji: '🍜' },
+                { id: 'vermicelli_lg', name: '炒米粉 (大)', price: 45, category: '主食類', emoji: '🍝' },
+                { id: 'vermicelli_sm', name: '炒米粉 (小)', price: 35, category: '主食類', emoji: '🍝' },
+                { id: 'braised_pork_lg', name: '爌肉飯 (大)', price: 55, category: '主食類', emoji: '🍱' },
+                { id: 'braised_pork_sm', name: '爌肉飯 (小)', price: 50, category: '主食類', emoji: '🍱' },
+                { id: 'minced_pork_lg', name: '肉燥飯 (大)', price: 45, category: '主食類', emoji: '🍛' },
+                { id: 'minced_pork_sm', name: '肉燥飯 (小)', price: 35, category: '主食類', emoji: '🍛' },
+                { id: 'chicken_rice_lg', name: '雞肉飯 (大)', price: 45, category: '主食類', emoji: '🍚' },
+                { id: 'chicken_rice_sm', name: '雞肉飯 (小)', price: 35, category: '主食類', emoji: '🍚' }
+            ];
+        }
+        const MENU_ITEMS = window.MENU_ITEMS;
         let cart = {}; // itemId: quantity
         let orderType = 'dine-in';
 

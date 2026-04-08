@@ -52,16 +52,15 @@ window.MENU_ITEMS = [
     { id: 'meatball_soup', name: '貢丸湯', price: 30, category: '湯類', emoji: '🥣' }
 ];
 
-const MENU_ITEMS = window.MENU_ITEMS;
+// --- 2. Supabase 配置 (恢復連線) ---
+var SUPABASE_URL = 'https://wtkqmgihyxklrbeblbws.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_xDnzR8_Iz6DH_U5qjYnLdA_oOOpKWKB'; 
 
-// --- 2. Supabase 配置 ---
-const SUPABASE_URL = 'https://wtkqmgihyxklrbeblbws.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_xDnzR8_Iz6DH_U5qjYnLdA_oOOpKWKB'; 
-
-let supabase = null;
+var supabase = null;
 try {
     if (window.supabase && typeof window.supabase.createClient === 'function') {
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('Supabase 客戶端已連線');
     } else {
         console.error('Supabase SDK 未能載入，請確認網路連線');
     }
@@ -156,8 +155,6 @@ window.SharedStore = {
         }
     }
 };
-
-const SharedStore = window.SharedStore;
 
 function showToast(msg, type = 'success') {
     const container = document.getElementById('toast-container');
