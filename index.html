@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>羅家新營豆菜麵 - 線上點餐</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Additional page-specific styles */
+        .page-header { background: white; padding: 1rem 5%; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .page-header h1 { font-size: 1.25rem; font-weight: 900; color: var(--primary); }
+    </style>
+</head>
+<body>
+    <header class="page-header">
+        <h1>羅家新營豆菜麵</h1>
+        <span style="font-size: 1.5rem">🛒</span>
+    </header>
+
+    <main id="app">
+        <section class="hero" style="margin-bottom:1rem; padding:0.5rem 0">
+            <h2 style="font-size:1.5rem">古早味美味，即刻傳遞</h2>
+            <p style="font-size:0.85rem">傳承新營在地好味道</p>
+        </section>
+
+        <div id="menu-container" class="menu-list">
+            <!-- Menu items injected here -->
+        </div>
+
+        <section class="order-controls">
+            <div class="order-type-tabs">
+                <button id="type-dine-in" class="tab active" onclick="setOrderType('dine-in')">內用</button>
+                <button id="type-take-out" class="tab" onclick="setOrderType('take-out')">外帶</button>
+            </div>
+
+            <div id="table-input-container" class="table-input-group">
+                <label>請輸入桌號</label>
+                <input type="text" id="table-number" placeholder="例如: 3">
+            </div>
+
+            <div class="cart-summary">
+                <h3 style="margin-bottom: 1rem">您的訂單</h3>
+                <div id="cart-items"></div>
+                <div class="total-row">
+                    <span>總計</span>
+                    <span id="grand-total">$0</span>
+                </div>
+            </div>
+
+            <button class="submit-btn" onclick="submitOrder()">立即點餐 (結帳)</button>
+        </section>
+    </main>
+
+    <!-- Receipt Modal -->
+    <div id="modal-container" class="hidden">
+        <div class="modal-overlay">
+            <div class="receipt-modal">
+                <div class="receipt-header">
+                    <span style="font-size: 2.5rem">✅</span>
+                    <h2>點餐成功！</h2>
+                    <p class="receipt-no" id="receipt-id">單號: #0000</p>
+                </div>
+                <div class="receipt-body" id="receipt-details">
+                    <!-- Receipt items -->
+                </div>
+                <button class="close-modal-btn" onclick="closeReceipt()">關閉並繼續點餐</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="shared.js"></script>
+    <script>
+        let cart = {}; // itemId: quantity
+        let orderType = 'dine-in';
+
+        function init() {
+            renderMenu();
+            renderCart();
+        }
+
+        function renderMenu() {
+            const container = document.getElementById('menu-container');
+            const categories = [...new Set(MENU_ITEMS.map(item => item.category))];
+
+            container.innerHTML = categories.map(cat => `
+                <div class="menu-category-header">${cat}</div>
+                ${MENU_ITEMS.filter(item => item.category === cat).map(item => `
+                    <div class="menu-row">
+                        <span class="menu-row-emoji">${item.emoji}</span>
+                        <span class="menu-row-name">${item.name}</span>
+                        <span class="menu-row-price">$${item.price}</span>
+                        <div class="qty-selector" style="margin:0; background:transparent; padding:0; gap:0.75rem">
+                            <button class="qty-btn" onclick="updateQty('${item.id}', -1)">-</button>
+                            <span class="qty-val" id="qty-${item.id}">${cart[item.id] || 0}</span>
+                            <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
+                        </div>
+                    </div>
+                `).join('')}
+            `).join('');
+        }
+
+        function updateQty(itemId, delta) {
+            const current = cart[itemId] || 0;
+            const newVal = Math.max(0, current + delta);
+            if (newVal === 0) delete cart[itemId];
+            else cart[itemId] = newVal;
+            
+            document.getElementById(`qty-${itemId}`).innerText = newVal;
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            const items = Object.entries(cart).map(([id, qty]) => {
+                const item = MENU_ITEMS.find(m => m.id === id);
+                return { ...item, qty };
+            });
+
+            if (items.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8">尚未選擇品項</p>';
+                document.getElementById('grand-total').innerText = '$0';
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="cart-item">
+                    <span>${item.name} x ${item.qty}</span>
+                    <span>$${item.price * item.qty}</span>
+                </div>
+            `).join('');
+
+            const total = items.reduce((sum, i) => sum + (i.price * i.qty), 0);
+            document.getElementById('grand-total').innerText = `$${total}`;
+        }
+
+        function setOrderType(type) {
+            orderType = type;
+            document.getElementById('type-dine-in').classList.toggle('active', type === 'dine-in');
+            document.getElementById('type-take-out').classList.toggle('active', type === 'take-out');
+            document.getElementById('table-input-container').classList.toggle('hidden', type === 'take-out');
+        }
+
+        function submitOrder() {
+            const items = Object.entries(cart).map(([id, qty]) => {
+                const item = MENU_ITEMS.find(m => m.id === id);
+                return { ...item, qty };
+            });
+
+            if (items.length === 0) {
+                showToast('請先選擇品項', 'error');
+                return;
+            }
+
+            const tableNum = document.getElementById('table-number').value;
+            if (orderType === 'dine-in' && !tableNum) {
+                showToast('請輸入桌號', 'error');
+                return;
+            }
+
+            const total = items.reduce((sum, i) => sum + (i.price * i.qty), 0);
+            const order = {
+                id: SharedStore.getNextId(orderType),
+                created_at: new Date().toISOString(),
+                items,
+                total_price: total,
+                status: 'pending',
+                order_type: orderType,
+                table_number: orderType === 'dine-in' ? tableNum : '外帶'
+            };
+
+            SharedStore.saveOrder(order);
+            showReceipt(order);
+            
+            // Clear cart
+            cart = {};
+            document.getElementById('table-number').value = '';
+            init();
+        }
+
+        function showReceipt(order) {
+            document.getElementById('receipt-id').innerText = `單號: #${order.id}`;
+            document.getElementById('receipt-details').innerHTML = `
+                <div style="margin-bottom: 1rem">
+                    <b>${order.order_type === 'dine-in' ? '內用' : '外帶'} ${order.table_number ? `(桌號 ${order.table_number})` : ''}</b>
+                </div>
+                ${order.items.map(i => `
+                    <div class="receipt-item">
+                        <span>${i.name} x ${i.qty}</span>
+                        <span>$${i.price * i.qty}</span>
+                    </div>
+                `).join('')}
+                <div class="receipt-item" style="border-top:1px solid #eee; margin-top:1rem; padding-top:0.5rem; font-weight:900; font-size:1.2rem">
+                    <span>總計</span>
+                    <span>$${order.total_price}</span>
+                </div>
+            `;
+            document.getElementById('modal-container').classList.remove('hidden');
+        }
+
+        function closeReceipt() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+
+        init();
+    </script>
+</body>
+</html>

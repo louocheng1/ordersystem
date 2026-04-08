@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>羅家新營豆菜麵 - 管理後台</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body style="background: #f8fafc">
+    <nav class="glass-nav">
+        <div class="nav-content">
+            <div class="logo">
+                <span class="logo-emoji">🏪</span>
+                <h1>管理後台</h1>
+            </div>
+            <div style="font-weight: 700; color: var(--primary)">羅家新營豆菜麵</div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="admin-stats" style="grid-template-columns: 2fr 1fr">
+            <div class="stat-card" style="padding:2rem 1.5rem">
+                <p style="font-size:1rem; color:var(--text-muted); margin-bottom:0.5rem">未處理訂單</p>
+                <div class="stat-value" id="pending-count" style="font-size:3.5rem">0</div>
+            </div>
+            <div class="stat-card" style="position:relative; padding:1rem">
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.4rem">今日累計營收</p>
+                <div style="display:flex; align-items:center; gap:0.4rem; justify-content:center">
+                    <div class="stat-value" id="revenue-total" style="font-size:1.3rem; filter:blur(6px); user-select:none; transition:filter 0.3s">$0</div>
+                    <button id="revenue-toggle" onclick="toggleRevenue()" title="顯示/隱藏營收"
+                        style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:var(--text-muted); padding:0; line-height:1">🔒</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="orders-table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>時間</th>
+                        <th>編號</th>
+                        <th>類型/桌號</th>
+                        <th>品項內容</th>
+                        <th>金額</th>
+                        <th>狀態</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-list">
+                    <!-- Orders injected here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 2rem; text-align: center">
+            <button onclick="clearData()" style="color: #94a3b8; background: none; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer">清除所有訂單紀錄</button>
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script src="shared.js"></script>
+    <script>
+        function render() {
+            const orders = SharedStore.getOrders();
+            const listContainer = document.getElementById('orders-list');
+            
+            const pending = orders.filter(o => o.status === 'pending');
+            const totalRevenue = orders
+                .filter(o => o.status === 'completed')
+                .reduce((sum, o) => sum + o.total_price, 0);
+
+            document.getElementById('pending-count').innerText = pending.length;
+            document.getElementById('revenue-total').innerText = `$${totalRevenue}`;
+            // Re-apply blur state if revenue is hidden
+            if (!revenueVisible) {
+                document.getElementById('revenue-total').style.filter = 'blur(6px)';
+            }
+
+            if (orders.length === 0) {
+                listContainer.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:3rem; color:#94a3b8">目前尚無訂單</td></tr>';
+                return;
+            }
+
+            listContainer.innerHTML = orders.map(order => `
+                <tr class="${order.status === 'pending' ? 'row-pending' : ''}">
+                    <td>${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td>#${order.id}</td>
+                    <td>
+                        <b>${order.order_type === 'dine-in' ? '內用' : '外帶'}</b> 
+                        ${order.table_number ? `(${order.table_number})` : ''}
+                    </td>
+                    <td>
+                        <small>${order.items.map(i => `${i.name}x${i.qty}`).join(', ')}</small>
+                    </td>
+                    <td style="font-weight:700">$${order.total_price}</td>
+                    <td>
+                        <span class="status-badge status-${order.status}">
+                            ${order.status === 'pending' ? '處理中' : '已完成'}
+                        </span>
+                    </td>
+                    <td>
+                        ${order.status === 'pending' ? `
+                            <button class="action-btn done-btn" onclick="completeOrder('${order.id}')">完成</button>
+                        ` : '—'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        let revenueVisible = false;
+        function toggleRevenue() {
+            revenueVisible = !revenueVisible;
+            const el = document.getElementById('revenue-total');
+            const btn = document.getElementById('revenue-toggle');
+            el.style.filter = revenueVisible ? 'none' : 'blur(6px)';
+            btn.textContent = revenueVisible ? '🔓' : '🔒';
+        }
+
+        function completeOrder(id) {
+            SharedStore.updateOrderStatus(id, 'completed');
+            showToast('訂單已完成');
+            render();
+        }
+
+        function clearData() {
+            if (confirm('確定要清除所有紀錄嗎？')) {
+                SharedStore.clearAll();
+                render();
+            }
+        }
+
+        // Listen for data changes from other tabs
+        window.addEventListener('storage', () => {
+            render();
+            showToast('訂單清單已更新');
+        });
+
+        // Periodic check in case of custom events not triggering across all browsers
+        setInterval(render, 5000);
+
+        render();
+    </script>
+</body>
+</html>
