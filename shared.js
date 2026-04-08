@@ -1,20 +1,10 @@
 /**
- * 羅家新營豆菜麵 - 共享數據與邏輯 (v3 - Supabase Cloud)
+ * 羅家新營豆菜麵 - 共享數據與邏輯 (v3.1 - Robust Cloud)
  */
-console.log('SharedStore v3 (Supabase) loaded');
+console.log('SharedStore v3.1 loaded');
 
-// Supabase 配置
-const SUPABASE_URL = 'https://wtkqmgihyxklrbeblbws.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_xDnzR8_Iz6DH_U5qjYnLdA_oOOpKWKB'; // 注意：若連線失敗，請檢查此金鑰是否為 anon public key
-
-let supabase;
-try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-} catch (e) {
-    console.error('Supabase 初始化失敗，請檢查 SDK 是否正確載入', e);
-}
-
-const MENU_ITEMS = [
+// --- 1. 品項定義 (優先載入，確保菜單一定會出現) ---
+window.MENU_ITEMS = [
     // 主食類
     { id: 'noodle_lg', name: '新營豆菜麵 (大)', price: 45, category: '主食類', emoji: '🍜' },
     { id: 'noodle_sm', name: '新營豆菜麵 (小)', price: 35, category: '主食類', emoji: '🍜' },
@@ -62,8 +52,27 @@ const MENU_ITEMS = [
     { id: 'meatball_soup', name: '貢丸湯', price: 30, category: '湯類', emoji: '🥣' }
 ];
 
-const SharedStore = {
+const MENU_ITEMS = window.MENU_ITEMS;
+
+// --- 2. Supabase 配置 ---
+const SUPABASE_URL = 'https://wtkqmgihyxklrbeblbws.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_xDnzR8_Iz6DH_U5qjYnLdA_oOOpKWKB'; 
+
+let supabase = null;
+try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    } else {
+        console.error('Supabase SDK 未能載入，請確認網路連線');
+    }
+} catch (e) {
+    console.error('Supabase 初始化失敗:', e);
+}
+
+// --- 3. 共享儲存邏輯 ---
+window.SharedStore = {
     async getOrders() {
+        if (!supabase) return [];
         const { data, error } = await supabase
             .from('orders')
             .select('*')
@@ -77,7 +86,9 @@ const SharedStore = {
     },
 
     async getNextId(type) {
-        // 先獲取目前的計數器數值
+        if (!supabase) return 'OFFLINE-' + Math.floor(Math.random() * 1000);
+        
+        // 先獲獲目前的計數器數值
         const { data, error } = await supabase
             .from('counters')
             .select('count')
@@ -86,7 +97,7 @@ const SharedStore = {
 
         if (error) {
             console.error('獲取序號失敗:', error);
-            return 'Error';
+            return type + '-ERR';
         }
 
         const nextCount = data.count + 1;
@@ -102,6 +113,7 @@ const SharedStore = {
     },
 
     async saveOrder(order) {
+        if (!supabase) throw new Error('資料庫未連線');
         const { error } = await supabase
             .from('orders')
             .insert([order]);
@@ -113,6 +125,7 @@ const SharedStore = {
     },
 
     async updateOrderStatus(orderId, status) {
+        if (!supabase) return;
         const { error } = await supabase
             .from('orders')
             .update({ status: status })
@@ -125,11 +138,12 @@ const SharedStore = {
     },
 
     async clearAll() {
+        if (!supabase) return;
         // 清除所有訂單紀錄
         const { error: orderError } = await supabase
             .from('orders')
             .delete()
-            .neq('id', 'placeholder_force_all'); // 刪除所有資料
+            .neq('id', 'placeholder_force_all');
 
         // 重置計數器
         const { error: counterError } = await supabase
@@ -142,6 +156,8 @@ const SharedStore = {
         }
     }
 };
+
+const SharedStore = window.SharedStore;
 
 function showToast(msg, type = 'success') {
     const container = document.getElementById('toast-container');
