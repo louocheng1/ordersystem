@@ -6,6 +6,7 @@
     <title>羅家新營豆菜麵 - 管理後台</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body style="background: #f8fafc">
     <nav class="glass-nav">
@@ -62,8 +63,8 @@
 
     <script src="shared.js"></script>
     <script>
-        function render() {
-            const orders = SharedStore.getOrders();
+        async function render() {
+            const orders = await SharedStore.getOrders();
             const listContainer = document.getElementById('orders-list');
             
             const pending = orders.filter(o => o.status === 'pending');
@@ -118,28 +119,45 @@
             btn.textContent = revenueVisible ? '🔓' : '🔒';
         }
 
-        function completeOrder(id) {
-            SharedStore.updateOrderStatus(id, 'completed');
-            showToast('訂單已完成');
-            render();
-        }
-
-        function clearData() {
-            if (confirm('確定要清除所有紀錄嗎？')) {
-                SharedStore.clearAll();
+        async function completeOrder(id) {
+            try {
+                await SharedStore.updateOrderStatus(id, 'completed');
+                showToast('訂單已完成');
                 render();
+            } catch (err) {
+                showToast('更新失敗', 'error');
             }
         }
 
-        // Listen for data changes from other tabs
-        window.addEventListener('storage', () => {
-            render();
-            showToast('訂單清單已更新');
-        });
+        async function clearData() {
+            if (confirm('確定要清除所有紀錄並重置單號嗎？')) {
+                try {
+                    await SharedStore.clearAll();
+                    showToast('資料已清除');
+                    render();
+                } catch (err) {
+                    showToast('清除失敗', 'error');
+                }
+            }
+        }
 
-        // Periodic check in case of custom events not triggering across all browsers
-        setInterval(render, 5000);
+        // 實作 Supabase 即時監聽 (Realtime)
+        function setupRealtime() {
+            supabase
+                .channel('schema-db-changes')
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'orders' 
+                }, payload => {
+                    console.log('收到即時更新:', payload);
+                    render();
+                })
+                .subscribe();
+        }
 
+        // 初始化
+        setupRealtime();
         render();
     </script>
 </body>

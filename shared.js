@@ -1,7 +1,18 @@
 /**
- * 羅家新營豆菜麵 - 共享數據與邏輯 (v2 - Sequential IDs)
+ * 羅家新營豆菜麵 - 共享數據與邏輯 (v3 - Supabase Cloud)
  */
-console.log('SharedStore v2 loaded');
+console.log('SharedStore v3 (Supabase) loaded');
+
+// Supabase 配置
+const SUPABASE_URL = 'https://wtkqmgihyxklrbeblbws.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_xDnzR8_Iz6DH_U5qjYnLdA_oOOpKWKB'; // 注意：若連線失敗，請檢查此金鑰是否為 anon public key
+
+let supabase;
+try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (e) {
+    console.error('Supabase 初始化失敗，請檢查 SDK 是否正確載入', e);
+}
 
 const MENU_ITEMS = [
     // 主食類
@@ -51,42 +62,84 @@ const MENU_ITEMS = [
     { id: 'meatball_soup', name: '貢丸湯', price: 30, category: '湯類', emoji: '🥣' }
 ];
 
-const STORAGE_KEY = 'luo_orders_shared';
-
-const COUNTER_KEY = 'luo_counters_shared';
-
 const SharedStore = {
-    getOrders() {
-        const data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : [];
-    },
-    getNextId(type) {
-        const data = localStorage.getItem(COUNTER_KEY);
-        let counters = data ? JSON.parse(data) : { 'dine-in': 0, 'take-out': 0 };
-        counters[type] = (counters[type] || 0) + 1;
-        localStorage.setItem(COUNTER_KEY, JSON.stringify(counters));
+    async getOrders() {
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false });
         
+        if (error) {
+            console.error('讀取訂單失敗:', error);
+            return [];
+        }
+        return data;
+    },
+
+    async getNextId(type) {
+        // 先獲取目前的計數器數值
+        const { data, error } = await supabase
+            .from('counters')
+            .select('count')
+            .eq('type', type)
+            .single();
+
+        if (error) {
+            console.error('獲取序號失敗:', error);
+            return 'Error';
+        }
+
+        const nextCount = data.count + 1;
+
+        // 更新資料庫中的計數器
+        await supabase
+            .from('counters')
+            .update({ count: nextCount })
+            .eq('type', type);
+
         const prefix = type === 'dine-in' ? '內' : '外';
-        return `${prefix}${counters[type]}`;
+        return `${prefix}${nextCount}`;
     },
-    saveOrder(order) {
-        const orders = this.getOrders();
-        orders.unshift(order);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-        window.dispatchEvent(new Event('storage'));
-    },
-    updateOrderStatus(orderId, status) {
-        const orders = this.getOrders();
-        const order = orders.find(o => o.id === orderId);
-        if (order) {
-            order.status = status;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+
+    async saveOrder(order) {
+        const { error } = await supabase
+            .from('orders')
+            .insert([order]);
+        
+        if (error) {
+            console.error('儲存訂單失敗:', error);
+            throw error;
         }
     },
-    clearAll() {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(COUNTER_KEY);
-        window.dispatchEvent(new Event('storage'));
+
+    async updateOrderStatus(orderId, status) {
+        const { error } = await supabase
+            .from('orders')
+            .update({ status: status })
+            .eq('id', orderId);
+        
+        if (error) {
+            console.error('更新訂單狀態失敗:', error);
+            throw error;
+        }
+    },
+
+    async clearAll() {
+        // 清除所有訂單紀錄
+        const { error: orderError } = await supabase
+            .from('orders')
+            .delete()
+            .neq('id', 'placeholder_force_all'); // 刪除所有資料
+
+        // 重置計數器
+        const { error: counterError } = await supabase
+            .from('counters')
+            .update({ count: 0 })
+            .neq('type', 'placeholder');
+
+        if (orderError || counterError) {
+            console.error('清除資料時發生錯誤', orderError, counterError);
+        }
     }
 };
 

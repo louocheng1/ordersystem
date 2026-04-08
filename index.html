@@ -6,6 +6,7 @@
     <title>羅家新營豆菜麵 - 線上點餐</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* Additional page-specific styles */
         .page-header { background: white; padding: 1rem 5%; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
@@ -143,7 +144,7 @@
             document.getElementById('table-input-container').classList.toggle('hidden', type === 'take-out');
         }
 
-        function submitOrder() {
+        async function submitOrder() {
             const items = Object.entries(cart).map(([id, qty]) => {
                 const item = MENU_ITEMS.find(m => m.id === id);
                 return { ...item, qty };
@@ -160,24 +161,37 @@
                 return;
             }
 
-            const total = items.reduce((sum, i) => sum + (i.price * i.qty), 0);
-            const order = {
-                id: SharedStore.getNextId(orderType),
-                created_at: new Date().toISOString(),
-                items,
-                total_price: total,
-                status: 'pending',
-                order_type: orderType,
-                table_number: orderType === 'dine-in' ? tableNum : '外帶'
-            };
+            const submitBtn = document.querySelector('.submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerText = '處理中...';
 
-            SharedStore.saveOrder(order);
-            showReceipt(order);
-            
-            // Clear cart
-            cart = {};
-            document.getElementById('table-number').value = '';
-            init();
+            try {
+                const total = items.reduce((sum, i) => sum + (i.price * i.qty), 0);
+                const orderId = await SharedStore.getNextId(orderType);
+                const order = {
+                    id: orderId,
+                    created_at: new Date().toISOString(),
+                    items,
+                    total_price: total,
+                    status: 'pending',
+                    order_type: orderType,
+                    table_number: orderType === 'dine-in' ? tableNum : '外帶'
+                };
+
+                await SharedStore.saveOrder(order);
+                showReceipt(order);
+                
+                // Clear cart
+                cart = {};
+                document.getElementById('table-number').value = '';
+                init();
+            } catch (err) {
+                showToast('下單失敗，請稍後再試', 'error');
+                console.error(err);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = '立即點餐 (結帳)';
+            }
         }
 
         function showReceipt(order) {
