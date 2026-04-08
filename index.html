@@ -6,7 +6,15 @@
     <title>羅家新營豆菜麵 - 線上點餐</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        window.addEventListener('load', () => {
+            if (!window.supabase) {
+                alert('核心組件載入失敗 (Supabase SDK)！請檢查網路連線或關閉廣告阻擋程式(AdBlock)。');
+            }
+        });
+    </script>
     <style>
         /* Additional page-specific styles */
         .page-header { background: white; padding: 1rem 5%; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
