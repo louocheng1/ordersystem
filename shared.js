@@ -52,27 +52,27 @@ window.MENU_ITEMS = [
     { id: 'meatball_soup', name: '貢丸湯', price: 30, category: '湯類', emoji: '🥣' }
 ];
 
-// --- 2. Supabase 配置 (恢復連線) ---
+// --- 2. Supabase 配置 (延遲初始化) ---
 var SUPABASE_URL = 'https://wtkqmgihyxklrbeblbws.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_xDnzR8_Iz6DH_U5qjYnLdA_oOOpKWKB'; 
+var _supabase = null;
 
-var supabase = null;
-try {
+function getSupabase() {
+    if (_supabase) return _supabase;
     if (window.supabase && typeof window.supabase.createClient === 'function') {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         console.log('Supabase 客戶端已連線');
-    } else {
-        console.error('Supabase SDK 未能載入，請確認網路連線');
+        return _supabase;
     }
-} catch (e) {
-    console.error('Supabase 初始化失敗:', e);
+    return null;
 }
 
 // --- 3. 共享儲存邏輯 ---
 window.SharedStore = {
     async getOrders() {
-        if (!supabase) return [];
-        const { data, error } = await supabase
+        var client = getSupabase();
+        if (!client) return [];
+        const { data, error } = await client
             .from('orders')
             .select('*')
             .order('created_at', { ascending: false });
@@ -85,10 +85,10 @@ window.SharedStore = {
     },
 
     async getNextId(type) {
-        if (!supabase) return 'OFFLINE-' + Math.floor(Math.random() * 1000);
+        var client = getSupabase();
+        if (!client) return 'OFFLINE-' + Math.floor(Math.random() * 1000);
         
-        // 先獲獲目前的計數器數值
-        const { data, error } = await supabase
+        const { data, error } = await client
             .from('counters')
             .select('count')
             .eq('type', type)
@@ -101,8 +101,7 @@ window.SharedStore = {
 
         const nextCount = data.count + 1;
 
-        // 更新資料庫中的計數器
-        await supabase
+        await client
             .from('counters')
             .update({ count: nextCount })
             .eq('type', type);
@@ -112,8 +111,10 @@ window.SharedStore = {
     },
 
     async saveOrder(order) {
-        if (!supabase) throw new Error('資料庫未連線');
-        const { error } = await supabase
+        var client = getSupabase();
+        if (!client) throw new Error('雲端連線尚未就緒，請稍後再試或檢查網路');
+        
+        const { error } = await client
             .from('orders')
             .insert([order]);
         
@@ -124,8 +125,9 @@ window.SharedStore = {
     },
 
     async updateOrderStatus(orderId, status) {
-        if (!supabase) return;
-        const { error } = await supabase
+        var client = getSupabase();
+        if (!client) return;
+        const { error } = await client
             .from('orders')
             .update({ status: status })
             .eq('id', orderId);
@@ -137,15 +139,15 @@ window.SharedStore = {
     },
 
     async clearAll() {
-        if (!supabase) return;
-        // 清除所有訂單紀錄
-        const { error: orderError } = await supabase
+        var client = getSupabase();
+        if (!client) return;
+        
+        const { error: orderError } = await client
             .from('orders')
             .delete()
             .neq('id', 'placeholder_force_all');
 
-        // 重置計數器
-        const { error: counterError } = await supabase
+        const { error: counterError } = await client
             .from('counters')
             .update({ count: 0 })
             .neq('type', 'placeholder');
