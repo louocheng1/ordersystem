@@ -161,8 +161,9 @@
         }
 
         async function submitOrder() {
+            const menu = window.MENU_ITEMS || [];
             const items = Object.entries(cart).map(([id, qty]) => {
-                const item = MENU_ITEMS.find(m => m.id === id);
+                const item = menu.find(m => m.id === id);
                 return { ...item, qty };
             });
 
@@ -182,8 +183,14 @@
             submitBtn.innerText = '處理中...';
 
             try {
+                const store = window.SharedStore;
+                if (!store) throw new Error('系統模組載入失敗，請重新整理');
+
                 const total = items.reduce((sum, i) => sum + (i.price * i.qty), 0);
-                const orderId = await SharedStore.getNextId(orderType);
+                
+                // 嘗試獲取序號
+                const orderId = await store.getNextId(orderType);
+                
                 const order = {
                     id: orderId,
                     created_at: new Date().toISOString(),
@@ -194,15 +201,17 @@
                     table_number: orderType === 'dine-in' ? tableNum : '外帶'
                 };
 
-                await SharedStore.saveOrder(order);
+                await store.saveOrder(order);
                 showReceipt(order);
                 
-                // Clear cart
+                // 清除購物車
                 cart = {};
                 document.getElementById('table-number').value = '';
                 init();
+                showToast('下單成功');
             } catch (err) {
-                showToast('下單失敗，請稍後再試', 'error');
+                alert('下單失敗原因: ' + err.message);
+                showToast('下單失敗: ' + err.message, 'error');
                 console.error(err);
             } finally {
                 submitBtn.disabled = false;
