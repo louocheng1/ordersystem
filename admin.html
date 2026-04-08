@@ -3,20 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>羅家新營豆菜麵 - 管理後台</title>
+    <title>管理後台 - 羅家新營豆菜麵</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    
     <!-- 多重備援 SDK 載入器 -->
     <script>
         function loadSupabase(srcs) {
             if (srcs.length === 0) {
-                alert('核心組件載入失敗！請確認您的網路連線或嘗試關閉廣告阻擋程式(AdBlock)。');
+                alert('核心組件載入失敗！請確認您的網路連線。');
                 return;
             }
             const s = document.createElement('script');
             s.src = srcs[0];
             s.onload = () => {
                 console.log('SDK 載入成功:', srcs[0]);
-                // 當 SDK 成功載入後才啟動後台監聽與渲染
                 if (typeof setupRealtime === 'function') setupRealtime();
                 if (typeof render === 'function') render();
             };
@@ -32,73 +33,225 @@
             'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
         ]);
     </script>
+
+    <style>
+        /* 新版管理後台樣式 - 緊湊統計 & 放大列表 */
+        :root {
+            --pending-bg: #fffaf5;
+            --pending-border: #ffedd5;
+        }
+
+        body { background-color: #f8fafc; }
+
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        /* 統計區塊 - 縮小 */
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .stat-mini-card {
+            background: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-mini-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .stat-mini-value {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--primary);
+        }
+
+        /* 訂單列表 - 放大 */
+        .orders-table-wrapper {
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th {
+            background: #f1f5f9;
+            padding: 1.2rem 1rem;
+            text-align: left;
+            font-size: 1rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1.5rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .row-pending {
+            background: var(--pending-bg);
+        }
+
+        /* 內容文字大小優化 */
+        .col-time { width: 100px; color: #64748b; font-size: 0.9rem; }
+        .col-id { width: 120px; font-size: 1.6rem; font-weight: 900; color: #0f172a; }
+        .col-type { width: 120px; }
+        .col-items { width: auto; font-size: 1.35rem; font-weight: 700; color: #1e293b; }
+        .col-total { width: 120px; font-size: 1.4rem; font-weight: 900; color: var(--accent); text-align: right; }
+        .col-status { width: 130px; text-align: center; }
+        .col-action { width: 160px; text-align: center; }
+
+        .type-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            background: #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 900;
+            margin-bottom: 0.3rem;
+        }
+
+        .table-num {
+            font-size: 1.4rem;
+            font-weight: 900;
+            display: block;
+        }
+
+        .item-row {
+            margin-bottom: 0.4rem;
+            display: block;
+        }
+
+        .item-qty {
+            color: var(--primary);
+            font-size: 1.1em;
+            margin-left: 0.5rem;
+        }
+
+        /* 按鈕放大 */
+        .btn-complete {
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+            width: 100%;
+        }
+
+        .btn-complete:hover {
+            background: #16a34a;
+            transform: translateY(-2px);
+        }
+
+        .status-tag {
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 0.95rem;
+        }
+
+        .status-tag.pending { background: #ffedd5; color: #f97316; }
+        .status-tag.completed { background: #dcfce7; color: #16a34a; }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+    </style>
 </head>
-<body style="background: #f8fafc">
+<body>
     <nav class="glass-nav">
         <div class="nav-content">
             <div class="logo">
                 <span class="logo-emoji">🏪</span>
-                <h1>管理後台</h1>
+                <h1>羅家新營豆菜麵 - 管理中心</h1>
             </div>
-            <div style="font-weight: 700; color: var(--primary)">羅家新營豆菜麵</div>
+            <button onclick="clearData()" style="font-size: 0.8rem; background:none; border: 1px solid #e2e8f0; padding: 0.4rem 0.8rem; border-radius: 8px; color: #94a3b8; cursor: pointer">重置資料</button>
         </div>
     </nav>
 
-    <main>
-        <div class="admin-stats" style="grid-template-columns: 2fr 1fr">
-            <div class="stat-card" style="padding:2rem 1.5rem">
-                <p style="font-size:1rem; color:var(--text-muted); margin-bottom:0.5rem">未處理訂單</p>
-                <div class="stat-value" id="pending-count" style="font-size:3.5rem">0</div>
-            </div>
-            <div class="stat-card" style="position:relative; padding:1rem">
-                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.4rem">今日累計營收</p>
-                <div style="display:flex; align-items:center; gap:0.4rem; justify-content:center">
-                    <div class="stat-value" id="revenue-total" style="font-size:1.3rem; filter:blur(6px); user-select:none; transition:filter 0.3s">$0</div>
-                    <button id="revenue-toggle" onclick="toggleRevenue()" title="顯示/隱藏營收"
-                        style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:var(--text-muted); padding:0; line-height:1">🔒</button>
+    <div class="admin-container">
+        <!-- 緊湊的統計區塊 -->
+        <div class="admin-header">
+            <div class="stats-row">
+                <div class="stat-mini-card">
+                    <span class="stat-mini-label">待處理訂單</span>
+                    <span class="stat-mini-value" id="pending-count">0</span>
+                    <span style="font-size: 1.2rem">⏳</span>
+                </div>
+                <div class="stat-mini-card">
+                    <span class="stat-mini-label">今日累計營收</span>
+                    <div style="display:flex; align-items:center; gap:0.5rem">
+                        <span class="stat-mini-value" id="revenue-total" style="filter:blur(6px); transition:filter 0.3s">$0</span>
+                        <button onclick="toggleRevenue()" id="revenue-toggle" style="background:none; border:none; cursor:pointer; font-size:1rem; padding:0">🔒</button>
+                    </div>
+                    <span style="font-size: 1.2rem">💰</span>
                 </div>
             </div>
         </div>
 
-        <div class="orders-table-container">
+        <!-- 放大後的訂單列表 -->
+        <div class="orders-table-wrapper">
             <table>
                 <thead>
                     <tr>
-                        <th>時間</th>
-                        <th>編號</th>
-                        <th>類型/桌號</th>
-                        <th>品項內容</th>
-                        <th>金額</th>
-                        <th>狀態</th>
-                        <th>操作</th>
+                        <th class="col-time">時間</th>
+                        <th class="col-id">單號</th>
+                        <th class="col-type">桌號/類型</th>
+                        <th class="col-items">點餐內容</th>
+                        <th class="col-total">總計</th>
+                        <th class="col-status">狀態</th>
+                        <th class="col-action">操作</th>
                     </tr>
                 </thead>
                 <tbody id="orders-list">
-                    <!-- Orders injected here -->
+                    <!-- Orders will be injected here -->
                 </tbody>
             </table>
         </div>
-
-        <div style="margin-top: 2rem; text-align: center">
-            <button onclick="clearData()" style="color: #94a3b8; background: none; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer">清除所有訂單紀錄</button>
-        </div>
-    </main>
+    </div>
 
     <div id="toast-container"></div>
 
     <script src="shared.js"></script>
     <script>
-        async function render() {
-            const orders = await SharedStore.getOrders();
-            const listContainer = document.getElementById('orders-list');
-            
-            const pending = orders.filter(o => o.status === 'pending');
-            const totalRevenue = orders
-                .filter(o => o.status === 'completed')
-                .reduce((sum, o) => sum + o.total_price, 0);
+        let revenueVisible = false;
 
-            document.getElementById('pending-count').innerText = pending.length;
-            document.getElementById('revenue-total').innerText = `$${totalRevenue}`;
+        async function render() {
             try {
                 const store = window.SharedStore;
                 if (!store) return;
@@ -107,51 +260,61 @@
                 const listContainer = document.getElementById('orders-list');
                 
                 // 更新統計
-                const pendingCount = orders.filter(o => o.status === 'pending').length;
-                const todayTotal = orders.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.total_price, 0);
+                const pendingOrders = orders.filter(o => o.status === 'pending');
+                const completedOrders = orders.filter(o => o.status === 'completed');
+                const todayTotal = completedOrders.reduce((sum, o) => sum + o.total_price, 0);
                 
-                document.getElementById('pending-count').innerText = pendingCount;
+                document.getElementById('pending-count').innerText = pendingOrders.length;
                 document.getElementById('revenue-total').innerText = `$${todayTotal}`;
                 
-                if (!revenueVisible) {
-                    document.getElementById('revenue-total').style.filter = 'blur(6px)';
-                }
-
                 if (orders.length === 0) {
-                    listContainer.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:3rem; color:#94a3b8">目前尚無訂單</td></tr>';
+                    listContainer.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:10rem; color:#94a3b8; font-size:1.5rem">目前尚無任何訂單資料</td></tr>';
                     return;
                 }
 
                 listContainer.innerHTML = orders.map(order => `
                     <tr class="${order.status === 'pending' ? 'row-pending' : ''}">
-                        <td>${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                        <td>#${order.id}</td>
-                        <td>
-                            <b>${order.order_type === 'dine-in' ? '內用' : '外帶'}</b> 
-                            ${order.table_number ? `(${order.table_number})` : ''}
+                        <td class="col-time">
+                            ${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </td>
-                        <td>
-                            <small>${order.items.map(i => `${i.name}x${i.qty}`).join(', ')}</small>
+                        <td class="col-id">#${order.id}</td>
+                        <td class="col-type">
+                            <span class="type-badge">${order.order_type === 'dine-in' ? '內用' : '外帶'}</span>
+                            <span class="table-num">${order.table_number || '-'}</span>
                         </td>
-                        <td style="font-weight:700">$${order.total_price}</td>
-                        <td>
-                            <span class="status-badge status-${order.status}">
+                        <td class="col-items">
+                            ${order.items.map(i => `
+                                <span class="item-row">• ${i.name} <span class="item-qty">x ${i.qty}</span></span>
+                            `).join('')}
+                        </td>
+                        <td class="col-total">$${order.total_price}</td>
+                        <td class="col-status">
+                            <span class="status-tag ${order.status}">
                                 ${order.status === 'pending' ? '處理中' : '已完成'}
                             </span>
                         </td>
-                        <td>
+                        <td class="col-action">
                             ${order.status === 'pending' ? `
-                                <button class="action-btn done-btn" onclick="updateStatus('${order.id}', 'completed')">完成</button>
-                            ` : '—'}
+                                <button class="btn-complete" onclick="updateStatus('${order.id}', 'completed')">收錢 / 完成</button>
+                            ` : '<span style="color:#cbd5e1; font-weight:700">已結帳</span>'}
                         </td>
                     </tr>
                 `).join('');
             } catch (err) {
-                console.error('渲染出錯:', err);
+                console.error('渲染失敗:', err);
             }
         }
 
-        let revenueVisible = false;
+        async function updateStatus(id, status) {
+            try {
+                await window.SharedStore.updateOrderStatus(id, status);
+                showToast('訂單處理完成');
+                render();
+            } catch (err) {
+                showToast('更新失敗: ' + err.message, 'error');
+            }
+        }
+
         function toggleRevenue() {
             revenueVisible = !revenueVisible;
             const el = document.getElementById('revenue-total');
@@ -160,45 +323,43 @@
             btn.textContent = revenueVisible ? '🔓' : '🔒';
         }
 
-        async function updateStatus(id, status) {
-            try {
-                await window.SharedStore.updateOrderStatus(id, status);
-                render();
-            } catch (err) {
-                showToast('更新失敗', 'error');
-            }
-        }
-
-        async function clearData() {
-            if (confirm('確定要清除所有紀錄並重置單號嗎？')) {
-                try {
-                    await SharedStore.clearAll();
-                    showToast('資料已清除');
-                    render();
-                } catch (err) {
-                    showToast('清除失敗', 'error');
-                }
-            }
-        }
-
-        // 實作 Supabase        // 監控即時更新
         function setupRealtime() {
             const client = window.getSupabase();
             if (!client) {
-                // 如果還沒載入，過一秒再試一次
                 setTimeout(setupRealtime, 1000);
                 return;
             }
-            
             client.channel('orders')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-                    console.log('偵測到訂單異動，重新渲染...');
                     render();
                 })
                 .subscribe();
         }
 
-        // 初始化已移至 SDK onload 執行
+        async function clearData() {
+            if (confirm('警告：這將會清除資料庫中所有的訂單，並將單號歸零。確定要繼續嗎？')) {
+                try {
+                    await window.SharedStore.clearAll();
+                    showToast('資料庫已清空');
+                    render();
+                } catch (err) {
+                    showToast('清空失敗', 'error');
+                }
+            }
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
     </script>
 </body>
 </html>
